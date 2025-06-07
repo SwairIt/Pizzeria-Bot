@@ -1,86 +1,34 @@
 from aiogram import F, types, Router
-from aiogram.filters import CommandStart, Command, or_f
-from aiogram.utils.formatting import (
-    as_list, 
-    as_marked_section, 
-    Bold
-)
+from aiogram.filters import CommandStart
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from filters.chat_types import ChatTypeFilter
-
-from kbds.reply import get_keyboard
-
-from database.orm_query import orm_get_products
+from kbds.inline import MenuCallBack, get_callback_btns
+from handlers.menu_processing import get_menu_content
 
 user_private_router = Router()
-user_private_router.message.filter(ChatTypeFilter(['private']))
+user_private_router.message.filter(ChatTypeFilter(["private"]))
+
 
 @user_private_router.message(CommandStart())
-async def start_cmd(message: types.Message):
-    await message.answer(
-        "Привет, я виртуальный помощник", 
-        reply_markup=get_keyboard(
-            "Меню",
-            "О магазине",
-            "Варианты оплаты",
-            "Варианты доставки",
-            placeholder='Что вас интересует',
-            sizes=(2, 2)
-        ),
+async def start_cmd(message: types.Message, session: AsyncSession):
+    media, reply_markup = await get_menu_content(session, level=0, menu_name="main")
+
+    await message.answer_photo(media.media, caption=media.caption, reply_markup=reply_markup)
+
+
+@user_private_router.callback_query(MenuCallBack.filter())
+async def user_menu(callback: types.CallbackQuery, callback_data: MenuCallBack, session: AsyncSession):
+
+    media, reply_markup = await get_menu_content(
+        session,
+        level=callback_data.level,
+        menu_name=callback_data.menu_name,
+        category=callback_data.category,
+        page=callback_data.page
     )
 
+    await callback.message.edit_media(media=media, reply_markup=reply_markup)
 
-@user_private_router.message(or_f(Command('menu'), (F.text.lower() == "меню")))
-async def menu_cmd(message: types.Message, session: AsyncSession):
-    for product in await orm_get_products(session):
-        await message.answer_photo(
-            product.image,
-            caption=f"<strong>{product.name}\
-                </strong>\n{product.description}\nСтоимость: {round(product.price, 2)}"
-        )
-    await message.answer("ОК, вот список товаров ⬆")
-
-
-@user_private_router.message(F.text.lower() == "о магазине")
-@user_private_router.message(Command('about'))
-async def about_cmd(message: types.Message):
-    await message.answer("О нас:")
-
-
-@user_private_router.message(F.text.lower() == "варианты оплаты")
-@user_private_router.message(Command('payment'))
-async def payment_cmd(message: types.Message):
-
-    text = as_marked_section(
-            Bold("Варианты оплаты:"),
-            "Картой в боте",
-            "При получении карта/кеш",
-            "В заведении",
-            marker='✅ '
-        )
-    await message.answer(text.as_html())
-
-
-@user_private_router.message(
-        (F.text.lower().contains('доставк')) | (F.text.lower() == "варианты доставки"))
-@user_private_router.message(Command('shipping'))
-async def menu_cmd(message: types.Message):
-    text = as_list(
-        as_marked_section(
-            Bold("Варианты доставки/заказа:"),
-            "Курьер",
-            "Самовынос (сейчас прибегу заберу)",
-            "Покушаю у Вас (сейчас прибегу)",
-            marker='✅ '
-        ),
-        as_marked_section(
-            Bold("Нельзя:"),
-            "Почта",
-            "Голуби",
-            marker='❌ '
-        ),
-        sep='\n-----------------------\n'
-    )
-    await message.answer(text.as_html())
+    await callback.answer()
