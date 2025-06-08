@@ -10,3 +10,4 @@ venv/
 *.py[cod]
 .vscode/
 *.db
+my_base.db
