@@ -9,3 +9,4 @@ venv/
 .venv/
 *.py[cod]
 .vscode/
+*.db
