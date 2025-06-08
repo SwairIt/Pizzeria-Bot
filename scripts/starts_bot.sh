@@ -5,7 +5,7 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 MAIN="$PROJECT_ROOT/src/pizzeria_bot/app.py"
-ENV_FILE="$PROJECT_ROOT/src/pizzeria_bot/.env"
+ENV_FILE="$PROJECT_ROOT/.env"
 
 echo "Запуск бота 'Пиццерия Тайги'..."
 
